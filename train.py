@@ -13,6 +13,7 @@ from networks.att_squeeze_unet import AttSqueezeUNet
 from utils import *
 from loss import *
 import os
+from os.path import exists
 
 
 from tensorflow.python.client import device_lib
@@ -26,15 +27,14 @@ assert len(physical_devices) > 0, "Not enough GPU hardware devices available"
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--epoch', dest='epoch', type=int, default=100, help='# of epoch')
-parser.add_argument('--network', dest='network', type=str, default="attention_segnet", help='Select network: attention_squeeze_unet, squeeze_unet, attention_unet, unet, segnet')
+parser = argparse.ArgumentParser(description="Attention Squeeze U-Net")
+parser.add_argument('--epoch', dest='epoch', type=int, default=100, help='number of epoch')
+parser.add_argument('--network', dest='network', type=str, default="attention_squeeze_unet", help='Select network: attention_squeeze_unet, squeeze_unet, attention_unet, unet, segnet')
 parser.add_argument('--batch_size', dest='batch_size', type=int, default=8, help='# images in batch')
 parser.add_argument('--lr', dest='lr', type=float, default=0.001, help='initial learning rate for adam')
-parser.add_argument('--aug_scale', dest='aug_scale', type=int, default=3, help='scale of data augmentation')
+parser.add_argument('--aug_scale', dest='aug_scale', type=int, default=4, help='scale of data augmentation (max 9)')
 parser.add_argument("--resume", help="path to the model to resume")
 parser.add_argument('--lr_decay', dest='lr_decay', default='time', help='time or exp')
-
 parser.add_argument('--train_set', dest='train_set', help='training data path')
 parser.add_argument('--checkpoint_dir', dest='ckpt_dir', default='./checkpoint', help='models are saved here')
 parser.add_argument('--log_dir', dest='log_dir', default='./logs', help='tensorboard logs are saved here')
@@ -44,17 +44,33 @@ args = parser.parse_args()
 
 
 def main():
+    if args.aug_scale > 9:
+        raise ValueError("Aug scale has to be equal or lower than 9!")
+    
+    if not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
+        
+    if not os.path.exists(args.ckpt_dir):
+        os.makedirs(args.ckpt_dir)
+    
     train_imgs = sorted(glob(args.train_set+"/*.jpg"))
     train_maps = sorted(glob(args.train_set+"/*.png"))
+
+    assert len(train_imgs) != 0, "Error the training image array is empty!"
+    assert len(train_imgs) == len(train_maps), "Error the training image number differs from the number of masks"
 
     train_steps_per_epoch = int(len(train_imgs) / args.batch_size)
     
     #validation set filepaths
     validation_imgs = sorted(glob(args.eval_set+"/*.jpg"))
     validation_maps = sorted(glob(args.eval_set+"/*.png"))
+    assert len(validation_imgs) != 0, "Error the validation image array is empty!"
+    assert len(validation_maps) != len(validation_imgs), "Error the validation image number differs from the number of masks"
 
     val_steps_per_epoch = int(len(validation_imgs) / args.batch_size)
+    
     size = (384, 512)
+    
     train_gen = data_generator(
         train_imgs,
         train_maps,
@@ -91,10 +107,13 @@ def main():
     model.compile(loss=focal_tversky_loss, optimizer=Adam(lr=args.lr), metrics=[jaccard_coef])
 
 
-    if args.resume:
-        print("Load Model: " + args.resume)
-        model.load_weights(args.resume)
-
+    if args.resume: 
+        if exists(args.resume):
+            print("Load Model: " + args.resume)
+            model.load_weights(args.resume)
+        else:
+            raise ValueError("File {file} does not exist!".format(file=args.resume))
+       
     
     initial_learning_rate = args.lr 
     
@@ -123,12 +142,11 @@ def main():
                       min_delta=0.0001,
                       mode='max')
 
-    csvlogger = tf.keras.callbacks.CSVLogger("logs/training.log", separator=',', append=True)
+    csvlogger = tf.keras.callbacks.CSVLogger(args.log_dir +"/training.log", separator=',', append=True)
     terminator = tf.keras.callbacks.TerminateOnNaN()
     
-    
 
-    filepath = args.ckpt_dir + "att_unet-{epoch:02d}-{val_jaccard_coef:.2f}.hdf5"
+    filepath = args.ckpt_dir + args.network + "-{epoch:02d}-{val_jaccard_coef:.2f}.hdf5"
     model_checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_acc',verbose=1, mode='max') 
     
     model.fit_generator(

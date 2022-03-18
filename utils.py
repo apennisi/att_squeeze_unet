@@ -35,11 +35,14 @@ def load_images_RGB_float32(path, size = (512, 512), hr = False, hsv = False, gr
 
 
 def category_label(labels, dims=(512, 512), n_labels=2):
-    x = np.zeros([dims[0], dims[1], n_labels])
-    for i in range(dims[0]):
-        for j in range(dims[1]):
-            x[i, j, int(labels[i][j])] = 1
-    return x
+    lbls = np.unique(np.around(labels, 0))
+    for i, num in enumerate(lbls):
+        labels = np.where(labels == num, i, labels)
+    
+    one_hot_map = np.eye(n_labels)[np.array(labels.astype(np.uint8)).reshape(-1)]
+    mp = one_hot_map.reshape((labels.shape[0], labels.shape[1], n_labels))
+    return mp
+
 
 def test_generator(imglist, maplist, size=(512, 512), hr = False, hsv = False, gray = False, multi=False):
     assert len(imglist) == len(maplist)
@@ -137,7 +140,7 @@ def data_generator(imglist, maplist, batchsize, augment_scale, size = (512, 512)
                     im = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
             else:
                 #random data augmentation
-                random_mode = np.random.randint(0, augment_scale + 1)
+                random_mode = np.random.randint(0, augment_scale)
                 im = data_augmentation(np.array(im), random_mode)
                 mp = data_augmentation(np.array(mp), random_mode)
                 

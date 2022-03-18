@@ -15,8 +15,6 @@ import cv2
 import cv2 as cv
 import numpy as np
 
-color_table = [0, 255]
-
 tf.config.run_functions_eagerly(True)
 print(tf.executing_eagerly())
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -27,8 +25,8 @@ mixed_precision.set_global_policy(policy)
 
 def argparser():
     # command line argments
-    parser = argparse.ArgumentParser(description="SegNet LIP dataset")
-    parser.add_argument('--network', dest='network', type=str, default="attention_segnet", help='Select network: attention_squeeze_unet, squeeze_unet, attention_unet, unet, segnet')
+    parser = argparse.ArgumentParser(description="Attention Squeeze U-Net")
+    parser.add_argument('--network', dest='network', type=str, default="attention_squeeze_unet", help='Select network: attention_squeeze_unet, squeeze_unet, attention_unet, unet, segnet')
     parser.add_argument("--test_dir", help="train test list path")
     parser.add_argument("--resume", help="path to the model to resume")
     parser.add_argument("--save_dir", help="output directory")
@@ -51,11 +49,11 @@ def main(args):
 
     from glob import glob
     list_images = sorted(glob(args.test_dir+"/*.jpg"))
-    list_maps = sorted(glob(args.test_dir+"/*.png"))
+    print("Number of images {n}".format(n=len(list_images)))
+    assert len(list_images) != 0, "Error the testing image array is empty!"
+    assert len(list_images) == len(list_images), "Error the testing image number differs from the number of masks"
         
     size = (384, 512)
-    
-    test_gen = test_generator(list_images, list_maps, size=size)
     
     model = None
     if args.network == "attention_unet":
@@ -74,20 +72,18 @@ def main(args):
     model.build(input_shape=(1, size[1], size[0], 3))    
     model.load_weights(args.resume)
     
-    for image, map in zip(list_images, list_maps):
-        print(image)
+    for image in list_images:
         im_512_np, im_np, im_size = load_images_RGB_float32(image, size=size)
         rgb = cv.imread(image, cv.IMREAD_COLOR)
-        map_img = cv.imread(map, cv.IMREAD_GRAYSCALE)
-        map_img = np.where(map_img == 255, 255, 0)
         prediction = model.predict(im_512_np)
         pred_image = color_image(prediction, size=size)
         pred_image = cv.resize(pred_image, im_size, interpolation=cv.INTER_CUBIC)
-        total = np.concatenate((map_img, pred_image), axis=1)
         
         last_slash = image.rfind('/')
         name = image[last_slash+1:]
-        cv.imwrite(args.save_dir + "/" + name, total) 
+        name = name[:name.find('.')]
+        print(image, name)        
+        cv.imwrite(args.save_dir + "/" + name + ".png", pred_image) 
     
 
 if __name__ == "__main__":
