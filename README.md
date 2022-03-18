@@ -13,6 +13,7 @@ The network has been trained on
 * Numpy
 * Tensorflow (>= 2.0)
 * Pillow
+* OpenCV (>= 4.0)
 
 ## Usage
 
