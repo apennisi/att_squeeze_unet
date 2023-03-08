@@ -44,7 +44,7 @@ Attention Squeeze U-Net has only 2.6 millions of parameters to train. The output
 
 ![Output Attention Squeeze U-Net](images/qualitative_results.png)
 
-## More Info
+## More Info and Citation:
 
 ```
 @article{Pennisi2022SkinLA,
