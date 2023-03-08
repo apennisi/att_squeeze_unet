@@ -46,4 +46,13 @@ Attention Squeeze U-Net has only 2.6 millions of parameters to train. The output
 
 ## More Info
 
-For more information, we submitted a paper to a journal, once we have more news, we will link the paper to this repository.
+```
+@article{Pennisi2022SkinLA,
+  title={Skin Lesion Area Segmentation Using Attention Squeeze U-Net for Embedded Devices},
+  author={Andrea Pennisi and Domenico Daniele Bloisi and Vincenzo Suriani and Daniele Nardi and Antonio Facchiano and Annalisa Giampetruzzi},
+  journal={Journal of Digital Imaging},
+  year={2022},
+  volume={35},
+  pages={1217 - 1230}
+}
+```
